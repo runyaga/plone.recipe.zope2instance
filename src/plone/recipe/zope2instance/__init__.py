@@ -148,9 +148,19 @@ class Recipe:
 
         zeo_client = options.get('zeo-client', '')
         zeo_address = options.get('zeo-address', '8100')
+        zeo_dbs=''
         
         if zeo_client.lower() in ('yes', 'true', 'on', '1'):
             template = zeo_conf_template
+            dbs = options.get('dbs',None)
+            if dbs:
+                dbs = dbs.split('\n')
+                for db in dbs:
+                    zeo_dbs += zeo_db_template % (dict(
+                            db_name=db,
+                            zeo_address=zeo_address,
+                            instance_home=instance_home
+                        ))
         else:
             template = zope_conf_template
             
@@ -164,6 +174,7 @@ class Recipe:
                                     file_storage = file_storage,
                                     http_address = http_address,
                                     zeo_address=zeo_address,
+                                    zeo_dbs=zeo_dbs,
                                     zope_conf_additional = zope_conf_additional,)
         
         zope_conf_path = os.path.join(location, 'etc', 'zope.conf')
@@ -354,6 +365,18 @@ verbose-security %(verbose_security)s
 %(zope_conf_additional)s
 """
 
+zeo_db_template = """\
+<zodb_db %(db_name)s>
+  mount-point /%(db_name)s
+  <zeoclient>
+    server %(zeo_address)s
+    storage %(db_name)s
+    name zeostorage
+    var %(instance_home)s/var
+  </zeoclient>
+</zodb_db>
+"""
+
 zeo_conf_template="""\
 instancehome %(instance_home)s
 %(products_lines)s
@@ -403,6 +426,8 @@ verbose-security %(verbose_security)s
     mount-point /temp_folder
     container-class Products.TemporaryFolder.TemporaryContainer
 </zodb_db>
+
+%(zeo_dbs)s
 
 %(zope_conf_additional)s
 """

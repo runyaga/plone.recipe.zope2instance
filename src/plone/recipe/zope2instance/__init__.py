@@ -248,7 +248,21 @@ class Recipe:
                          % zope_conf_path
                          ),
             )
-        
+
+        run_script = daemontools_run_template % options
+
+        run_script_path = os.path.join(location, 'run')
+        open(run_script_path, 'w').write(run_script)
+
+        if not options['zeo-client']:
+  
+          repozo_script = repozo_script_template % options
+  
+          repozo_script_path = os.path.join(location, 'bin', 'repozo')
+          open(repozo_script_path, 'w').write(repozo_script)
+
+          ctlscript = "%s/%s" % (bindir, repozo)
+          os.symlink("%s/bin/repozo" % location, ctlscript)
 
     def build_package_includes(self):
         """Create ZCML slugs in etc/package-includes
@@ -430,4 +444,46 @@ verbose-security %(verbose_security)s
 %(zeo_dbs)s
 
 %(zope_conf_additional)s
+"""
+
+daemontools_run_template="""\
+#! /bin/sh
+#
+# run script for zope under djb daemontools
+#
+
+exec 2>&1
+
+PYTHON="%(bin-directory)s/zopepy"
+ZOPE_HOME="%(zope2-location)s"
+INSTANCE_HOME="%(location)s"
+CONFIG_FILE="$INSTANCE_HOME/etc/zope.conf"
+SOFTWARE_HOME="$ZOPE_HOME/lib/python"
+PYTHONPATH="$SOFTWARE_HOME"
+export PYTHONPATH INSTANCE_HOME SOFTWARE_HOME
+
+ZOPE_RUN="$SOFTWARE_HOME/Zope2/Startup/run.py"
+
+exec /command/setuidgid zope "$PYTHON" "$ZOPE_RUN" -C "$CONFIG_FILE" "$@"
+"""
+
+repozo_script_template="""\
+#! /bin/sh
+#
+# run script for zope under djb daemontools
+#
+
+exec 2>&1
+
+PYTHON="%(bin-directory)s/zopepy"
+ZOPE_HOME="%(zope2-location)s"
+INSTANCE_HOME="%(location)s"
+CONFIG_FILE="$INSTANCE_HOME/etc/zope.conf"
+SOFTWARE_HOME="$ZOPE_HOME/lib/python"
+PYTHONPATH="$SOFTWARE_HOME"
+export PYTHONPATH INSTANCE_HOME SOFTWARE_HOME
+
+REPOZO="$ZOPE_HOME/bin/repozo.py"
+
+exec /command/setuidgid zope "$PYTHON" "$REPOZO" -C "$CONFIG_FILE" "$@"
 """

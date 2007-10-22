@@ -418,10 +418,10 @@ instancehome %(instance_home)s
 debug-mode %(debug_mode)s
 security-policy-implementation %(security_implementation)s
 verbose-security %(verbose_security)s
-%(effective_user)s
-%(ip_address)s
 default-zpublisher-encoding %(default_zpublisher_encoding)s
 port-base %(port_base)s
+%(effective_user)s
+%(ip_address)s
 
 <eventlog>
   level %(event_log_level)s
@@ -472,10 +472,13 @@ instancehome %(instance_home)s
 debug-mode %(debug_mode)s
 security-policy-implementation %(security_implementation)s
 verbose-security %(verbose_security)s
+default-zpublisher-encoding %(default_zpublisher_encoding)s
+port-base %(port_base)s
 %(effective_user)s
+%(ip_address)s
 
 <eventlog>
-  level info
+  level %(event_log_level)s
   <logfile>
     path %(event_log)s
     level info
@@ -483,7 +486,7 @@ verbose-security %(verbose_security)s
 </eventlog>
 
 <logger access>
-  level WARN
+  level %(z_log_level)s
   <logfile>
     path %(z_log)s
     format %%(message)s

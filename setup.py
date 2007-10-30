@@ -55,7 +55,7 @@ zcml
 
 default-zpublisher-encoding
   This controls what character set is used to encode unicode data that reaches
-  ZPublisher without any other specified encoding. Defaults to iso-8859-15
+  ZPublisher without any other specified encoding. Zope defaults to iso-8859-15
 
 debug-mode
   Set to 'on' to turn on debug mode in Zope. Defaults to 'off'.
@@ -80,7 +80,7 @@ port-base
   Offset applied to the port numbers used for ZServer configurations. For
   example, if the http-server port is 8080 and the port-base is 1000, the HTTP
   server will listen on port 9080. This makes it easy to change the complete
-  set of ports used by a Zope server process. Defaults to 0
+  set of ports used by a Zope server process. Zope defaults to 0.
 
 http-address
   Give a port for the HTTP server. Defaults to 8080.
@@ -123,6 +123,11 @@ zodb-cache-size
 
 zeo-client-cache-size
   Set the size of the ZEO client cache. Defaults to '30MB'.
+
+zserver-threads
+  Specify the number of threads that Zope's ZServer web server will use to
+  service requests. You shouldn't change this unless you know what you are
+  doing. Zope's default is 4.
 
 zope-conf-additional
   Give additional lines to zope.conf. Make sure you

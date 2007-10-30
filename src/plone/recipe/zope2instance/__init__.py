@@ -132,7 +132,9 @@ class Recipe:
             verbose_security = options.get('verbose-security', 'off')
             if verbose_security == 'on':
                 security_implementation = 'python'
-            port_base = options.get('port-base', '0')
+            port_base = options.get('port-base', '')
+            if port_base:
+                port_base = 'port-base %s' % port_base
             http_address = options.get('http-address', '8080')
             effective_user = options.get('effective-user', '')
             if effective_user:
@@ -161,7 +163,9 @@ class Recipe:
             
             z_log_level = options.get('z2-log-level', 'WARN')
             
-            default_zpublisher_encoding = options.get('default-zpublisher-encoding', 'iso-8859-15')
+            default_zpublisher_encoding = options.get('default-zpublisher-encoding', '')
+            if default_zpublisher_encoding:
+                default_zpublisher_encoding = 'default-zpublisher-encoding %s' % default_zpublisher_encoding
             
             file_storage = options.get('file-storage', os.path.sep.join(('var', 'filestorage', 'Data.fs',)))
             file_storage = os.path.join(base_dir, file_storage)
@@ -176,6 +180,10 @@ class Recipe:
                 if not os.path.exists(blob_storage):
                     os.makedirs(blob_storage)
                 storage_snippet = blob_storage_template % (blob_storage, file_storage)
+                
+            zserver_threads = options.get('zserver-threads', '')
+            if zserver_threads:
+                zserver_threads = 'zserver-threads %s' % zserver_threads
 
             zeo_client = options.get('zeo-client', '')
             zeo_address = options.get('zeo-address', '8100')
@@ -204,6 +212,7 @@ class Recipe:
                                         port_base = port_base,
                                         http_address = http_address,
                                         zeo_address = zeo_address,
+                                        zserver_threads = zserver_threads,
                                         zodb_cache_size = zodb_cache_size,
                                         zeo_client_cache_size = zeo_client_cache_size,
                                         zope_conf_additional = zope_conf_additional,)
@@ -418,10 +427,11 @@ instancehome %(instance_home)s
 debug-mode %(debug_mode)s
 security-policy-implementation %(security_implementation)s
 verbose-security %(verbose_security)s
-default-zpublisher-encoding %(default_zpublisher_encoding)s
-port-base %(port_base)s
+%(default_zpublisher_encoding)s
+%(port_base)s
 %(effective_user)s
 %(ip_address)s
+%(zserver_threads)s
 
 <eventlog>
   level %(event_log_level)s
@@ -472,10 +482,11 @@ instancehome %(instance_home)s
 debug-mode %(debug_mode)s
 security-policy-implementation %(security_implementation)s
 verbose-security %(verbose_security)s
-default-zpublisher-encoding %(default_zpublisher_encoding)s
-port-base %(port_base)s
+%(default_zpublisher_encoding)s
+%(port_base)s
 %(effective_user)s
 %(ip_address)s
+%(zserver_threads)s
 
 <eventlog>
   level %(event_log_level)s

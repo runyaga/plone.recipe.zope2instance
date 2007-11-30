@@ -273,6 +273,7 @@ class Recipe:
                          ),
             )
 
+        options['path'] = ":".join(ws_locations)
         run_script = daemontools_run_template % options
 
         run_script_path = os.path.join(location, 'run')
@@ -491,7 +492,7 @@ ZOPE_HOME="%(zope2-location)s"
 INSTANCE_HOME="%(location)s"
 CONFIG_FILE="$INSTANCE_HOME/etc/zope.conf"
 SOFTWARE_HOME="$ZOPE_HOME/lib/python"
-PYTHONPATH="$SOFTWARE_HOME"
+PYTHONPATH="$SOFTWARE_HOME:%(path)s:$PYTHONPATH"
 export PYTHONPATH INSTANCE_HOME SOFTWARE_HOME
 
 ZOPE_RUN="$SOFTWARE_HOME/Zope2/Startup/run.py"
@@ -504,23 +505,3 @@ daemontools_log_run_template="""\
 exec /command/setuidgid zope /usr/local/bin/multilog t ./main
 """
 
-repozo_script_template="""\
-#! /bin/sh
-#
-# run script for zope under djb daemontools
-#
-
-exec 2>&1
-
-PYTHON="%(bin-directory)s/zopepy"
-ZOPE_HOME="%(zope2-location)s"
-INSTANCE_HOME="%(location)s"
-CONFIG_FILE="$INSTANCE_HOME/etc/zope.conf"
-SOFTWARE_HOME="$ZOPE_HOME/lib/python"
-PYTHONPATH="$SOFTWARE_HOME"
-export PYTHONPATH INSTANCE_HOME SOFTWARE_HOME
-
-REPOZO="$ZOPE_HOME/bin/repozo.py"
-
-exec /command/setuidgid zope "$PYTHON" "$REPOZO" -C "$CONFIG_FILE" "$@"
-"""

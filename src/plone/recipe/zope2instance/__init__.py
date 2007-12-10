@@ -192,6 +192,8 @@ class Recipe:
             zeo_client_cache_size = options.get('zeo-client-cache-size', '30MB')
             zeo_storage = options.get('zeo-storage', '1')
 
+            temp_storage = options.get('temp-storage-override', temp_storage_template)
+                                       
             if zeo_client.lower() in ('yes', 'true', 'on', '1'):
                 template = zeo_conf_template
             else:
@@ -217,7 +219,8 @@ class Recipe:
                                         zodb_cache_size = zodb_cache_size,
                                         zeo_client_cache_size = zeo_client_cache_size,
                                         zeo_storage = zeo_storage,
-                                        zope_conf_additional = zope_conf_additional,)
+                                        zope_conf_additional = zope_conf_additional,
+                                        temp_storage = temp_storage)
         
         zope_conf_path = os.path.join(location, 'etc', 'zope.conf')
         open(zope_conf_path, 'w').write(zope_conf)
@@ -402,6 +405,18 @@ if __name__ == '__main__':
                     )
 
 # Storage snippets for zope.conf template
+temp_storage_template="""
+<zodb_db temporary>
+  # Temporary storage database (for sessions)
+  <temporarystorage>
+    name temporary storage for sessioning
+  </temporarystorage>
+  mount-point /temp_folder
+  container-class Products.TemporaryFolder.TemporaryContainer
+</zodb_db>
+"""
+
+
 file_storage_template="""
     <filestorage>
       path %s
@@ -460,14 +475,7 @@ verbose-security %(verbose_security)s
     mount-point /
 </zodb_db>
 
-<zodb_db temporary>
-    # Temporary storage database (for sessions)
-    <temporarystorage>
-      name temporary storage for sessioning
-    </temporarystorage>
-    mount-point /temp_folder
-    container-class Products.TemporaryFolder.TemporaryContainer
-</zodb_db>
+%(temp_storage)s
 
 %(zope_conf_additional)s
 """
@@ -520,14 +528,7 @@ verbose-security %(verbose_security)s
   </zeoclient>
 </zodb_db>
 
-<zodb_db temporary>
-    # Temporary storage database (for sessions)
-    <temporarystorage>
-      name temporary storage for sessioning
-    </temporarystorage>
-    mount-point /temp_folder
-    container-class Products.TemporaryFolder.TemporaryContainer
-</zodb_db>
+%(temp_storage)s
 
 %(zope_conf_additional)s
 """

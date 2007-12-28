@@ -199,9 +199,20 @@ class Recipe:
             zeo_storage = options.get('zeo-storage', '1')
 
             if zeo_client.lower() in ('yes', 'true', 'on', '1'):
-                template = zeo_conf_template
-            else:
-                template = zope_conf_template
+                if blob_storage:
+                    storage_snippet_template = zeo_blob_storage_template
+                else:
+                    storage_snippet_template = zeo_storage_template
+                storage_snippet = storage_snippet_template % dict(
+                    blob_storage = blob_storage,
+                    instance_home = instance_home,
+                    zeo_address = zeo_address,
+                    zeo_client_name = zeo_client_name,
+                    zeo_client_cache_size = zeo_client_cache_size,
+                    zeo_storage = zeo_storage,
+                    )
+
+            template = zope_conf_template
 
             pid_file = options.get(
                 'pid-file',
@@ -225,12 +236,8 @@ class Recipe:
                                         storage_snippet = storage_snippet.strip(),
                                         port_base = port_base,
                                         http_address = http_address,
-                                        zeo_address = zeo_address,
                                         zserver_threads = zserver_threads,
                                         zodb_cache_size = zodb_cache_size,
-                                        zeo_client_name = zeo_client_name,
-                                        zeo_client_cache_size = zeo_client_cache_size,
-                                        zeo_storage = zeo_storage,
                                         pid_file = pid_file,
                                         lock_file = lock_file,
                                         zope_conf_additional = zope_conf_additional,)
@@ -412,11 +419,13 @@ if __name__ == '__main__':
 
 # Storage snippets for zope.conf template
 file_storage_template="""
+    # FileStorage database
     <filestorage>
       path %s
     </filestorage>
 """
 blob_storage_template="""
+    # Blob-enabled FileStorage database
     <blobstorage>
       blob-dir %s
       <filestorage>
@@ -424,6 +433,29 @@ blob_storage_template="""
       </filestorage>
     </blobstorage>
 """
+
+zeo_storage_template="""
+    # ZEOStorage database
+    <zeoclient>
+      server %(zeo_address)s
+      storage %(zeo_storage)s
+      name zeostorage
+      var %(instance_home)s/var
+      cache-size %(zeo_client_cache_size)s
+    </zeoclient>
+""".strip()
+
+zeo_blob_storage_template="""
+    # Blob-enabled ZEOStorage database
+    <zeoclient>
+      blob-dir %(blob_storage)s
+      server %(zeo_address)s
+      storage %(zeo_storage)s
+      name zeostorage
+      var %(instance_home)s/var
+      cache-size %(zeo_client_cache_size)s
+    </zeoclient>
+""".strip()
 
 # The template used to build zope.conf
 zope_conf_template="""\
@@ -463,74 +495,10 @@ verbose-security %(verbose_security)s
 </http-server>
 
 <zodb_db main>
-    # Main FileStorage database
+    # Main database
     cache-size %(zodb_cache_size)s
-    %(storage_snippet)s
+%(storage_snippet)s
     mount-point /
-</zodb_db>
-
-<zodb_db temporary>
-    # Temporary storage database (for sessions)
-    <temporarystorage>
-      name temporary storage for sessioning
-    </temporarystorage>
-    mount-point /temp_folder
-    container-class Products.TemporaryFolder.TemporaryContainer
-</zodb_db>
-
-pid-filename %(pid_file)s
-lock-filename %(lock_file)s
-
-%(zope_conf_additional)s
-"""
-
-zeo_conf_template="""\
-instancehome %(instance_home)s
-%(products_lines)s
-debug-mode %(debug_mode)s
-security-policy-implementation %(security_implementation)s
-verbose-security %(verbose_security)s
-%(default_zpublisher_encoding)s
-%(port_base)s
-%(effective_user)s
-%(ip_address)s
-%(zserver_threads)s
-%(zeo_client_name)s
-
-<eventlog>
-  level %(event_log_level)s
-  <logfile>
-    path %(event_log)s
-    level info
-  </logfile>
-</eventlog>
-
-<logger access>
-  level %(z_log_level)s
-  <logfile>
-    path %(z_log)s
-    format %%(message)s
-  </logfile>
-</logger>
-
-<http-server>
-  # valid keys are "address" and "force-connection-close"
-  address %(http_address)s
-  # force-connection-close on
-  # You can also use the WSGI interface between ZServer and ZPublisher:
-  # use-wsgi on
-</http-server>
-
-<zodb_db main>
-  mount-point /
-  cache-size %(zodb_cache_size)s
-  <zeoclient>
-    server %(zeo_address)s
-    storage %(zeo_storage)s
-    name zeostorage
-    var %(instance_home)s/var
-    cache-size %(zeo_client_cache_size)s
-  </zeoclient>
 </zodb_db>
 
 <zodb_db temporary>

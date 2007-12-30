@@ -188,17 +188,14 @@ class Recipe:
             zeo_client = options.get('zeo-client', '')
             zeo_address = options.get('zeo-address', '8100')
 
-            zeo_client_name = options.get('zeo-client-name', self.name)
-            if zeo_client_name:
-                zeo_client_name = 'zeo-client-name %s' % zeo_client_name
-            else:
-                zeo_client_name = ''
-
             zodb_cache_size = options.get('zodb-cache-size', '5000')
             zeo_client_cache_size = options.get('zeo-client-cache-size', '30MB')
             zeo_storage = options.get('zeo-storage', '1')
 
             if zeo_client.lower() in ('yes', 'true', 'on', '1'):
+                zeo_client_name = options.get('zeo-client-name', self.name)
+                if zeo_client_name:
+                    zeo_client_name = 'zeo-client-name %s' % zeo_client_name
                 if blob_storage:
                     storage_snippet_template = zeo_blob_storage_template
                 else:
@@ -207,10 +204,12 @@ class Recipe:
                     blob_storage = blob_storage,
                     instance_home = instance_home,
                     zeo_address = zeo_address,
-                    zeo_client_name = zeo_client_name,
                     zeo_client_cache_size = zeo_client_cache_size,
                     zeo_storage = zeo_storage,
                     )
+            else:
+                # no zeo-client, so no zeo_client_name
+                zeo_client_name = ''
 
             template = zope_conf_template
 
@@ -238,6 +237,7 @@ class Recipe:
                                         http_address = http_address,
                                         zserver_threads = zserver_threads,
                                         zodb_cache_size = zodb_cache_size,
+                                        zeo_client_name = zeo_client_name,
                                         pid_file = pid_file,
                                         lock_file = lock_file,
                                         zope_conf_additional = zope_conf_additional,)
@@ -494,6 +494,7 @@ verbose-security %(verbose_security)s
   # use-wsgi on
 </http-server>
 
+%(zeo_client_name)s
 <zodb_db main>
     # Main database
     cache-size %(zodb_cache_size)s

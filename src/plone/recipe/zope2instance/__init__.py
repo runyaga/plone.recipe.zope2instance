@@ -54,13 +54,15 @@ class Recipe:
         if sys.platform[:3].lower() == "win":
             mkzopeinstance = '"%s"' % mkzopeinstance
 
-        assert os.spawnl(
-            os.P_WAIT, os.path.normpath(options['executable']),
-            zc.buildout.easy_install._safe_arg(options['executable']),
-            mkzopeinstance, '-d',
-            zc.buildout.easy_install._safe_arg(location),
-            '-u', options['user'],
-            ) == 0
+        user = options.get('user')
+        args = [os.P_WAIT, os.path.normpath(options['executable']),
+                zc.buildout.easy_install._safe_arg(options['executable']),
+                mkzopeinstance, '-d',
+                zc.buildout.easy_install._safe_arg(location)]
+
+        if user is not None:
+            args.extend(['-u', user])
+        assert os.spawnl(*args) == 0
 
         try:
             # Save the working set:

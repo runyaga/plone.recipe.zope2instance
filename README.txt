@@ -35,6 +35,10 @@ repozo
   running this. Defaults to "${zope2-location}/utilities/ZODBTools/repozo.py".
   Set this to an empty value if you do not want this script to be generated.
 
+user
+  If present, an ``inituser`` is created in order to setup an account.
+  (Format: <username>:<password>). ``user`` is optional.
+
 The following options all affect the generated zope.conf:
 
 products

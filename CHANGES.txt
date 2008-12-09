@@ -1,6 +1,14 @@
 Change History
 ==============
 
+2.9 (unreleased)
+----------------
+
+- ``user`` option is now optional. Updated documentation
+  for ``user`` option
+  [ajung]
+
+
 2.8 (2008-12-05)
 ----------------
 

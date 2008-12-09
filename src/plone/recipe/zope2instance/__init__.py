@@ -58,8 +58,8 @@ class Recipe:
         args = [os.P_WAIT, os.path.normpath(options['executable']),
                 zc.buildout.easy_install._safe_arg(options['executable']),
                 mkzopeinstance, '-d',
-                zc.buildout.easy_install._safe_arg(location)]
-
+                zc.buildout.easy_install._safe_arg(location)]                                                             
+        
         if user is not None:
             args.extend(['-u', user])
         assert os.spawnl(*args) == 0

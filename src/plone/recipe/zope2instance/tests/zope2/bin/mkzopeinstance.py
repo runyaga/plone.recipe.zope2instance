@@ -5,12 +5,16 @@ import os
 
 def _mkdir(d):
     if not os.path.exists(d):
-        os.makedirs(d)
+        os.mkdir(d)
 
-try:
+if len(sys.argv) == 5:
+    # <prog> -d <dirname> -u <user:password>
     dir_ = sys.argv[-3]
-except:
+elif len(sys.argv) == 3:
+    # <prog> -d <dirname>
     dir_ = sys.argv[-1]
+else:
+    raise RuntimeError('Unknown number of cmdline arguments')
 
 _mkdir(dir_)
 _mkdir(os.path.join(dir_, 'etc'))

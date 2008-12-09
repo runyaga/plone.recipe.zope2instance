@@ -59,7 +59,7 @@ class Recipe:
                 zc.buildout.easy_install._safe_arg(options['executable']),
                 mkzopeinstance, '-d',
                 zc.buildout.easy_install._safe_arg(location)]                                                             
-        
+
         if user is not None:
             args.extend(['-u', user])
         assert os.spawnl(*args) == 0

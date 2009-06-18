@@ -28,7 +28,6 @@ action "help" to find out about available actions.
 """
 
 import os, sys, csv
-
 try:
     # Zope 2.8+
     from Zope2.Startup import zopectl
@@ -232,8 +231,7 @@ class AdjustedZopeCmd(zopectl.ZopeCmd):
     def do_test(self, arg):
         if not TESTRUNNER:
             # This is probably Zope <= 2.8
-            zopectl.ZopeCmd.do_test(self, arg)
-            return
+            return zopectl.ZopeCmd.do_test(self, arg)
 
         # We overwrite the test command to populate the search path
         # automatically with all configured products and eggs.
@@ -306,12 +304,16 @@ class AdjustedZopeCmd(zopectl.ZopeCmd):
         # Run the testrunner. Calling it directly ensures that it is executed
         # in the same environment that we just carefully configured.
         args.insert(0, zope.testing.testrunner.__file__)
-        zope.testing.testrunner.run(defaults, args)
+        return zope.testing.testrunner.run(defaults, args)
 
 
 def main(args=None):
     # This is mainly a copy of zopectl.py's main function from Zope2.Startup
     options = zopectl.ZopeCtlOptions()
+    exit_with_status = False
+    if '--exit-with-status' in args:
+        exit_with_status = True
+        args.remove('--exit-with-status')
     # Realize arguments and set documentation which is used in the -h option
     options.realize(args, doc=__doc__)
     # We use our own ZopeCmd set, that is derived from the original one.
@@ -339,7 +341,7 @@ def main(args=None):
 
     # If no command was specified we go into interactive mode.
     if options.args:
-        c.onecmd(" ".join(options.args))
+        exitstatus = c.onecmd(" ".join(options.args))
     else:
         options.interactive = 1
     if options.interactive:
@@ -350,3 +352,5 @@ def main(args=None):
         print "program:", " ".join(options.program)
         c.do_status()
         c.cmdloop()
+    if exit_with_status:
+        sys.exit(min(exitstatus, 1))

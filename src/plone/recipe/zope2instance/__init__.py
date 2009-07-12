@@ -53,6 +53,7 @@ class Recipe:
             if not mkzopeinstance:
                 # EEE
                 return
+
         else:
             mkzopeinstance = os.path.join(
                 self.zope2_location, 'bin', 'mkzopeinstance.py')
@@ -551,28 +552,17 @@ if __name__ == '__main__':
         extra_paths.extend(options.get('extra-paths', '').split())
 
         requirements, ws = self.egg.working_set(['plone.recipe.zope2instance'])
-
-        if self.zope2_egg:
-            zc.buildout.easy_install.scripts(
-                [(self.options.get('control-script', self.name),
-                    'plone.recipe.zope2instance.simple', 'main')],
-                ws, options['executable'], options['bin-directory'],
-                extra_paths = extra_paths,
-                arguments = ('\n        [%r]'
-                             % zope_conf
-                             ),
-                )
-        else:
-            zc.buildout.easy_install.scripts(
-                [(self.options.get('control-script', self.name),
-                    'plone.recipe.zope2instance.ctl', 'main')],
-                ws, options['executable'], options['bin-directory'],
-                extra_paths = extra_paths,
-                arguments = ('\n        ["-C", %r]'
-                             '\n        + sys.argv[1:]'
-                             % zope_conf
-                             ),
-                )
+        
+        zc.buildout.easy_install.scripts(
+            [(self.options.get('control-script', self.name),
+                'plone.recipe.zope2instance.ctl', 'main')],
+            ws, options['executable'], options['bin-directory'],
+            extra_paths = extra_paths,
+            arguments = ('\n        ["-C", %r]'
+                         '\n        + sys.argv[1:]'
+                         % zope_conf
+                         ),
+            )
             
             # XXX
             # # The backup script, pointing to repozo.py

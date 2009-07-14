@@ -22,7 +22,6 @@ class Recipe:
     def __init__(self, buildout, name, options):
         self.egg = zc.recipe.egg.Egg(buildout, options['recipe'], options)
         self.buildout, self.options, self.name = buildout, options, name
-        self.zope2_egg = options.get('zope2-egg', False)
         self.zope2_location = options.get('zope2-location', '')
 
         options['location'] = os.path.join(
@@ -47,7 +46,7 @@ class Recipe:
         # patch the result. A better approach might be to provide independent
         # instance-creation logic, but this raises lots of issues that
         # need to be stored out first.
-        if self.zope2_egg:
+        if not self.zope2_location:
             mkzopeinstance = os.path.join(
                 self.buildout['buildout']['directory'], 'bin', 'mkzopeinstance')
             if not mkzopeinstance:
@@ -445,7 +444,7 @@ class Recipe:
             fd.close()
 
     def patch_binaries(self, ws_locations):
-        if self.zope2_egg:
+        if not self.zope2_location:
             return
 
         location = self.options['location']
@@ -563,21 +562,6 @@ if __name__ == '__main__':
                          % zope_conf
                          ),
             )
-            
-            # XXX
-            # # The backup script, pointing to repozo.py
-            # repozo = options.get('repozo', None)
-            # if repozo is None:
-            #     repozo = os.path.join(self.zope2_location, 'utilities', 'ZODBTools', 'repozo.py')
-            # 
-            # directory, filename = os.path.split(repozo)
-            # if repozo and os.path.exists(repozo):
-            #     zc.buildout.easy_install.scripts(
-            #         [('repozo', os.path.splitext(filename)[0], 'main')],
-            #         {}, options['executable'], options['bin-directory'],
-            #         extra_paths = [os.path.join(self.zope2_location, 'lib', 'python'),
-            #                        directory],
-            #         )
 
     def build_package_includes(self):
         """Create ZCML slugs in etc/package-includes

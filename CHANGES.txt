@@ -4,6 +4,10 @@ Change History
 3.3 - UNRELEASED
 ----------------
 
+- Removed the `zope2-egg` option and the simple startup script from the recipe.
+  We assume that we have an egg distribution if `zope2-location` is not set.
+  [hannosch]
+
 - Reinstall scripts on update which appears to be good recipe practice.
   [stefan]
 

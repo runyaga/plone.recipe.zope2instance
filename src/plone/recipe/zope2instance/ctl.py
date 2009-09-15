@@ -347,7 +347,7 @@ def main(args=None):
 
     # If no command was specified we go into interactive mode.
     if options.args:
-        c.onecmd(" ".join(options.args))
+        exitstatus = c.onecmd(" ".join(options.args))
     else:
         options.interactive = 1
     if options.interactive:

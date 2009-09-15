@@ -4,6 +4,8 @@ Changelog
 3.6 (unreleased)
 ----------------
 
+- Add a new option to the instance script, --exit-with-status. If set
+  script will return an exit code. Useful for buildbot based tests
 
 3.5 (2009-09-05)
 ----------------
@@ -51,8 +53,6 @@ Changelog
 
 - Reinstall scripts on update which appears to be good recipe practice.
   [stefan]
-- Add a new option to the instance script, --exit-with-status. If set
-  script will return an exit code. Useful for buildbot based tests
 
 3.2 - 2009-04-02
 ----------------

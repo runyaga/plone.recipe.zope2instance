@@ -319,6 +319,7 @@ def main(args=None):
     exit_with_status = False
     if '--exit-with-status' in args:
         exit_with_status = True
+	exitstatus = 0
         args.remove('--exit-with-status')
     # Realize arguments and set documentation which is used in the -h option
     options.realize(args, doc=__doc__)
@@ -358,6 +359,8 @@ def main(args=None):
         print "program:", " ".join(options.program)
         c.do_status()
         c.cmdloop()
+    if exit_with_status:
+        sys.exit(min(exitstatus, 1))
 
 
 class NoShellZopeCmd(AdjustedZopeCmd):
@@ -462,7 +465,7 @@ def noshell(args=None):
 
     # If no command was specified we go into interactive mode.
     if options.args:
-        exitstatus = c.onecmd(" ".join(options.args))
+        c.onecmd(" ".join(options.args))
     else:
         options.interactive = 1
     if options.interactive:
@@ -473,5 +476,3 @@ def noshell(args=None):
         print "program:", " ".join(options.program)
         c.do_status()
         c.cmdloop()
-    if exit_with_status:
-        sys.exit(min(exitstatus, 1))

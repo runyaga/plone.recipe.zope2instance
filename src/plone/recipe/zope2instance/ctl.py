@@ -35,7 +35,7 @@ try:
 except ImportError:
     # Zope 2.7 (and below)
     from Zope.Startup import zopectl
-    from Zope.Startup import handlers    
+    from Zope.Startup import handlers
 
 TESTRUNNER = True
 try:
@@ -59,11 +59,11 @@ def quote_command(command):
     print " ".join(command)
     # Quote the program name, so it works even if it contains spaces
     command = " ".join(['"%s"' % x for x in command])
-    if WIN32: 
-        # odd, but true: the windows cmd processor can't handle more than 
-        # one quoted item per string unless you add quotes around the 
-        # whole line. 
-        command = '"%s"' % command 
+    if WIN32:
+        # odd, but true: the windows cmd processor can't handle more than
+        # one quoted item per string unless you add quotes around the
+        # whole line.
+        command = '"%s"' % command
     return command
 
 class AdjustedZopeCmd(zopectl.ZopeCmd):
@@ -107,13 +107,13 @@ class AdjustedZopeCmd(zopectl.ZopeCmd):
                 serviceClassString = ('%s.%s' % (
                         os.path.join(parent, 'zopeservice'),
                         InstanceService.__name__))
-                win32serviceutil.HandleCommandLine(InstanceService, 
+                win32serviceutil.HandleCommandLine(InstanceService,
                                                    serviceClassString,
                                                    argv=['', cmd])
             finally:
                 os.environ.data = old_env
                 sys.path = old_path
-    
+
         def do_install(self, arg):
             self.handle_command('install')
 
@@ -160,18 +160,18 @@ class AdjustedZopeCmd(zopectl.ZopeCmd):
         # So we have to return to self.options.args,
         # which is a tuple of command line args,
         # throwing away the "run" command at the beginning.
-        # 
+        #
         # Further complications: if self.options.args has come
         # via subprocess, it may look like
         # ['run "arg 1" "arg2"'] rather than ['run','arg 1','arg2'].
         # If that's the case, we'll use csv to do the parsing
-        # so that we can split on spaces while respecting quotes.        
+        # so that we can split on spaces while respecting quotes.
         if len(self.options.args) == 1:
             tup = csv.reader(self.options.args, delimiter=' ').next()[1:]
         else:
             tup = self.options.args[1:]
-    
-    
+
+
         if not tup:
             print "usage: run <script> [args]"
             return
@@ -198,7 +198,7 @@ class AdjustedZopeCmd(zopectl.ZopeCmd):
         print "    In contrast to foreground this does not turn on debug mode."
 
     def do_debug(self, arg):
-        cmdline = self.get_startup_cmd(self.options.python, 
+        cmdline = self.get_startup_cmd(self.options.python,
                                        'import Zope2; app=Zope2.app()',
                                        pyflags = '-i',)
         print ('Starting debugger (the name "app" is bound to the top-level '
@@ -275,7 +275,7 @@ class AdjustedZopeCmd(zopectl.ZopeCmd):
         paths = sys.path
         progname = self.options.progname
         buildout_root = os.path.dirname(os.path.dirname(progname))
-        
+
         for path in paths:
             if _n(path) != _n(buildout_root):
                 defaults += ['--test-path', path]
@@ -304,7 +304,12 @@ class AdjustedZopeCmd(zopectl.ZopeCmd):
         # Run the testrunner. Calling it directly ensures that it is executed
         # in the same environment that we just carefully configured.
         args.insert(0, zope.testing.testrunner.__file__)
-        return zope.testing.testrunner.run(defaults, args)
+        script_parts = [sys.argv[0], 'test']
+        try:
+            return zope.testing.testrunner.run(defaults, args, script_parts=script_parts)
+        except TypeError:
+            # BBB to support zope.testing <= 3.8.0
+            return zope.testing.testrunner.run(defaults, args)
 
 
 def main(args=None):
@@ -334,8 +339,123 @@ def main(args=None):
     os.environ['PYTHONPATH'] = os.path.pathsep.join(sys.path)
 
     # Add the path to the zopeservice.py script, which is needed for some of the
-    # Windows specific commands    
-    servicescript = os.path.join(options.configroot.instancehome, 
+    # Windows specific commands
+    servicescript = os.path.join(options.configroot.instancehome,
+                                 'bin', 'zopeservice.py')
+    options.servicescript = [options.python, servicescript]
+
+    # If no command was specified we go into interactive mode.
+    if options.args:
+        c.onecmd(" ".join(options.args))
+    else:
+        options.interactive = 1
+    if options.interactive:
+        try:
+            import readline
+        except ImportError:
+            pass
+        print "program:", " ".join(options.program)
+        c.do_status()
+        c.cmdloop()
+
+
+class NoShellZopeCmd(AdjustedZopeCmd):
+
+    def environment(self):
+        configroot = self.options.configroot
+        env = dict(os.environ)
+        env.update({'SOFTWARE_HOME': configroot.softwarehome,
+                    'INSTANCE_HOME': configroot.instancehome,
+                    'PYTHONPATH': ':'.join(sys.path + [
+                        configroot.softwarehome])})
+        return env
+
+    def do_foreground(self, arg, debug=True):
+        if not WIN32:
+            self.get_status()
+            pid = self.zd_pid
+            if pid:
+                print "To run the program in the foreground, please stop it first."
+                return
+
+        import subprocess
+        options = self.options
+        env = self.environment()
+        cmd = self.options.program
+        if debug:
+            cmd.extend(['-X', 'debug-mode=on'])
+            return subprocess.call(cmd, env=env)
+        os.execve(cmd[0], cmd, env)
+
+    def do_start(self, arg):
+        self.get_status()
+        if not self.zd_up:
+            args = [
+                self.options.python,
+                self.options.zdrun,
+                ]
+            args += self._get_override("-S", "schemafile")
+            args += self._get_override("-C", "configfile")
+            args += self._get_override("-b", "backofflimit")
+            args += self._get_override("-d", "daemon", flag=1)
+            args += self._get_override("-f", "forever", flag=1)
+            args += self._get_override("-s", "sockname")
+            args += self._get_override("-u", "user")
+            if self.options.umask:
+                args += self._get_override("-m", "umask",
+                                           oct(self.options.umask))
+            args += self._get_override(
+                "-x", "exitcodes", ",".join(map(str, self.options.exitcodes)))
+            args += self._get_override("-z", "directory")
+
+            args.extend(self.options.program)
+
+            if self.options.daemon:
+                flag = os.P_NOWAIT
+            else:
+                flag = os.P_WAIT
+            os.spawnvpe(flag, args[0], args, self.environment())
+        elif not self.zd_pid:
+            self.send_action("start")
+        else:
+            print "daemon process already running; pid=%d" % self.zd_pid
+            return
+        self.awhile(lambda: self.zd_pid,
+                    "daemon process started, pid=%(zd_pid)d")
+
+def noshell(args=None):
+    # This is a customized entry point for launching Zope without forking shell
+    # scripts or other processes.
+    options = zopectl.ZopeCtlOptions()
+    # Realize arguments and set documentation which is used in the -h option
+    options.realize(args, doc=__doc__)
+
+    # Change the program to avoid warning messages
+    script = os.path.join(
+        options.configroot.softwarehome, 'Zope2', 'Startup', 'run.py')
+    options.program =  [options.python, script, '-C', options.configfile]
+
+    # We use our own ZopeCmd set, that is derived from the original one.
+    c = NoShellZopeCmd(options)
+    # We need to apply a number of hacks to make things work:
+
+    # We need to apply a number of hacks to make things work:
+
+    # This puts amongst other things all the configured products directories
+    # into the Products.__path__ so we can put those on the test path
+    handlers.root_handler(options.configroot)
+
+    # We need to apply the configuration in one more place
+    import App.config
+    App.config.setConfiguration(options.configroot)
+
+    # The PYTHONPATH is not set, so all commands starting a new shell fail
+    # unless we set it explicitly
+    os.environ['PYTHONPATH'] = os.path.pathsep.join(sys.path)
+
+    # Add the path to the zopeservice.py script, which is needed for some of the
+    # Windows specific commands
+    servicescript = os.path.join(options.configroot.instancehome,
                                  'bin', 'zopeservice.py')
     options.servicescript = [options.python, servicescript]
 

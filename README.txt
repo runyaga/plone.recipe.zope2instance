@@ -1,5 +1,5 @@
-plone.recipe.zope2instance
-==========================
+Introduction
+============
 
 This recipe creates and configures a Zope 2 instance in parts. It also
 installs a control script, which is like zopectl, in the bin/ directory.
@@ -42,7 +42,7 @@ products
   precedence in case the same product is found in more than one directory.
 
 site-zcml
-  If you want a custom site.zcml file, put its content here. If this option is 
+  If you want a custom site.zcml file, put its content here. If this option is
   used the zcml and zcml-additional options are ignored.
 
 zcml
@@ -103,6 +103,9 @@ webdav-address
 webdav-force-connection-close
   Valid options are off and on. Defaults to off
 
+icp-address
+  Give a port for the ICP server. This enables the ICP server.
+
 client-home
   Sets the clienthome for the generated instance.
   Defaults to ${buildout:directory}/var/<name of the section>.
@@ -145,17 +148,17 @@ blob-storage
   The name of the directory where the ZODB blob data will be stored.
 
 rel-storage
-  Allows to set a RelStorage instead of a FileStorage. 
-  
+  Allows to set a RelStorage instead of a FileStorage.
+
   Contains settings separated by newlines, with these values:
-  
+
   - type: any database type supported (postgresql, oracle, mysql)
-  - all other keys are passed on to the database-specific RelStorage
-    adapter.
+  - RelStorage specific keys, like `cache-servers` and `poll-interval`
+  - all other keys are passed on to the database-specific RelStorage adapter.
 
   Example::
-    
-    rel-storage = 
+
+    rel-storage =
       type oracle
       dsn (DESCRIPTION=(ADDRESS=(HOST=s01))(CONNECT_DATA=(SERVICE_NAME=d01)))
       user tarek
@@ -218,7 +221,7 @@ zserver-threads
   Specify the number of threads that Zope's ZServer web server will use to
   service requests. You shouldn't change this unless you know what you are
   doing. Zope's default is 4.
-  
+
 zodb-temporary-storage
   If given Zope's default temporary storage definition will be replaced by
   the lines of this parameter.
@@ -226,10 +229,10 @@ zodb-temporary-storage
 environment-vars
   Define arbitrary key-value pairs for use as environment variables during
   Zope's run cycle.
-  
+
   Example::
-  
-    environment-vars = 
+
+    environment-vars =
       TZ US/Eastern
       TMP /var/tmp
       DISABLE_PTS True
@@ -237,12 +240,23 @@ environment-vars
 zope-conf-additional
   Give additional lines to zope.conf. Make sure you indent any lines after
   the one with the parameter.
-  
+
   Example::
-  
+
     zope-conf-additional =
       locale fr_FR
       http-realm Slipknot
+
+relative-paths
+  Set this to `true` to make the generated scripts use relative
+  paths. You can also enable this in the `[buildout]` section.
+
+no-shell
+  The traditional way to run Zope is by using shell scripts. These in
+  turn start-up a Python process with the right settings. By setting
+  this option to true (default false) these shell scripts will not be
+  used. In this case the recipe will directly start the Python
+  process.
 
 Reporting bugs or asking questions
 ----------------------------------

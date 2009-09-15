@@ -1,4 +1,5 @@
-##############################################################################
+
+# ##############################################################################
 #
 # Copyright (c) 2006-2008 Zope Corporation and Contributors.
 # All Rights Reserved.
@@ -22,8 +23,7 @@ class Recipe:
     def __init__(self, buildout, name, options):
         self.egg = zc.recipe.egg.Egg(buildout, options['recipe'], options)
         self.buildout, self.options, self.name = buildout, options, name
-        self.zope2_egg = options.get('zope2-egg', False)
-        self.zope2_location = options.get('zope2-location', None)
+        self.zope2_location = options.get('zope2-location', '')
 
         options['location'] = os.path.join(
             buildout['buildout']['parts-directory'],
@@ -31,6 +31,18 @@ class Recipe:
             )
         options['bin-directory'] = buildout['buildout']['bin-directory']
         options['scripts'] = '' # suppress script generation.
+
+        # Relative path support for the generated scripts
+        relative_paths = options.get(
+            'relative-paths',
+            buildout['buildout'].get('relative-paths', 'false')
+            )
+        if relative_paths == 'true':
+            options['buildout-directory'] = buildout['buildout']['directory']
+            self._relative_paths = options['buildout-directory']
+        else:
+            self._relative_paths = ''
+            assert relative_paths == 'false'
 
     def install(self):
         options = self.options
@@ -42,22 +54,30 @@ class Recipe:
         if os.path.exists(location):
             shutil.rmtree(location)
 
-        # If we have an egg-layout, we cannot build the instance
-        if self.zope2_egg:
-            return location
-
         # What follows is a bit of a hack because the instance-setup mechanism
         # is a bit monolithic. We'll run mkzopeinstance and then we'll
         # patch the result. A better approach might be to provide independent
         # instance-creation logic, but this raises lots of issues that
         # need to be stored out first.
-        mkzopeinstance = os.path.join(
-            self.zope2_location, 'bin', 'mkzopeinstance.py')
-        if not os.path.exists(mkzopeinstance):
+        if not self.zope2_location:
             mkzopeinstance = os.path.join(
-                self.zope2_location, 'utilities', 'mkzopeinstance.py')
-        if sys.platform[:3].lower() == "win":
-            mkzopeinstance = '"%s"' % mkzopeinstance
+                options['bin-directory'], 'mkzopeinstance')
+            if not mkzopeinstance:
+                # EEE
+                return
+
+        else:
+            mkzopeinstance = os.path.join(
+                self.zope2_location, 'bin', 'mkzopeinstance.py')
+            if not os.path.exists(mkzopeinstance):
+                mkzopeinstance = os.path.join(
+                    self.zope2_location, 'utilities', 'mkzopeinstance.py')
+            if sys.platform[:3].lower() == "win":
+                mkzopeinstance = '"%s"' % mkzopeinstance
+
+        if not mkzopeinstance:
+            # EEE
+            return
 
         assert os.spawnl(
             os.P_WAIT, os.path.normpath(options['executable']),
@@ -127,307 +147,327 @@ class Recipe:
         # Don't do this if we have a manual zope.conf
         zope_conf_path = options.get('zope-conf', None)
         if zope_conf_path is not None:
-            zope_conf = "%%include %s" % os.path.abspath(zope_conf_path)
+            return
+
+        products = options.get('products', '')
+        if products:
+            products = products.split('\n')
+            # Filter out empty directories
+            products = [p for p in products if p]
+            # Make sure we have consistent path seperators
+            products = [os.path.abspath(p) for p in products]
+
+        base_dir = self.buildout['buildout']['directory']
+        var_dir = options.get('var', os.path.join(base_dir, 'var'))
+        if not os.path.exists(var_dir):
+            os.makedirs(var_dir)
+
+        instance_home = location
+        client_home = options.get('client-home', os.path.join(var_dir,
+                                                              self.name))
+        if not os.path.exists(client_home):
+            os.makedirs(client_home)
+
+        products_lines = '\n'.join(['products %s' % p for p in products])
+        module_paths = options.get('extra-paths', '')
+        if module_paths:
+            module_paths = module_paths.split('\n')
+            # Filter out empty directories
+            module_paths = [p for p in module_paths if p]
+            # Make sure we have consistent path seperators
+            module_paths = [os.path.abspath(p) for p in module_paths]
+        paths_lines = '\n'.join(['path %s' % p for p in module_paths])
+        debug_mode = options.get('debug-mode', 'off')
+        security_implementation = 'C'
+        verbose_security = options.get('verbose-security', 'off')
+        if verbose_security == 'on':
+            security_implementation = 'python'
+        port_base = options.get('port-base', '')
+        if port_base:
+            port_base = 'port-base %s' % port_base
+        http_address = options.get('http-address', '8080')
+        http_fast_listen = options.get('http-fast-listen', None)
+        if http_fast_listen is None:
+            http_fast_listen = ''
         else:
+            http_fast_listen = http_fast_listen_template % http_fast_listen
+        ftp_address = options.get('ftp-address', '')
+        if ftp_address:
+            ftp_address = ftp_server_template % ftp_address
+        webdav_address = options.get('webdav-address', '')
+        if webdav_address:
+            webdav_conn_close = options.get(
+                                    'webdav-force-connection-close',
+                                    'off')
+            webdav_address = webdav_server_template % (webdav_address,
+                                                       webdav_conn_close)
+        icp_address = options.get('icp-address', '')
+        if icp_address:
+            icp_address = icp_server_template % icp_address
+        effective_user = options.get('effective-user', '')
+        if effective_user:
+            effective_user = 'effective-user %s' % effective_user
+        ip_address = options.get('ip-address', '')
+        if ip_address:
+            ip_address = 'ip-address %s' % ip_address
+        environment_vars = options.get('environment-vars', '')
+        if environment_vars:
+            # if the vars are all given on one line we need to do some work
+            if not '\n' in environment_vars:
+                keys = []
+                values = []
+                env_vars = environment_vars.split()
+                # split out the odd and even items into keys, values
+                for var in env_vars:
+                    if divmod(env_vars.index(var) + 1, 2)[1]:
+                        keys.append(var)
+                    else:
+                        values.append(var)
+                env_vars = zip(keys, values)
+                environment_vars = '\n'.join(["%s %s" % (env_var[0], env_var[1])
+                                             for env_var in env_vars])
+            environment_vars = environment_template % environment_vars
 
-            products = options.get('products', '')
-            if products:
-                products = products.split('\n')
-                # Filter out empty directories
-                products = [p for p in products if p]
-                # Make sure we have consistent path seperators
-                products = [os.path.abspath(p) for p in products]
+        deprecation_warnings = options.get('deprecation-warnings', '')
+        if deprecation_warnings:
+            if deprecation_warnings.lower() in ('off', 'disable', 'false'):
+                deprecation_warnings = 'ignore'
+            elif deprecation_warnings.lower() in ('enable', 'on', 'true'):
+                deprecation_warnings = 'default'
+            deprecation_warnings = '\n'.join((
+                "<warnfilter>",
+                "  action %s" % deprecation_warnings,
+                "  category exceptions.DeprecationWarning",
+                "</warnfilter>"))
 
-            base_dir = self.buildout['buildout']['directory']
-            var_dir = options.get('var', os.path.join(base_dir, 'var'))
-            if not os.path.exists(var_dir):
-                os.makedirs(var_dir)
+        zope_conf_additional = options.get('zope-conf-additional', '')
 
-            instance_home = location
-            client_home = options.get('client-home', os.path.join(var_dir,
-                                                                  self.name))
-            if not os.path.exists(client_home):
-                os.makedirs(client_home)
+        event_log_level = options.get('event-log-level', 'INFO')
+        custom_event_log = options.get('event-log-custom', None)
+        default_log = os.path.sep.join(('log', self.name + '.log',))
+        # log file
+        if custom_event_log is None:
+            event_log_name = options.get('event-log', default_log)
+            event_file = os.path.join(var_dir, event_log_name)
+            event_log_dir = os.path.dirname(event_file)
+            if not os.path.exists(event_log_dir):
+                os.makedirs(event_log_dir)
+            event_log = event_logfile % {'event_logfile': event_file,
+                                         'event_log_level': event_log_level}
+        # custom log
+        else:
+            event_log = custom_event_log
 
-            products_lines = '\n'.join(['products %s' % p for p in products])
-            module_paths = options.get('extra-paths', '')
-            if module_paths:
-                module_paths = module_paths.split('\n')
-                # Filter out empty directories
-                module_paths = [p for p in module_paths if p]
-                # Make sure we have consistent path seperators
-                module_paths = [os.path.abspath(p) for p in module_paths]
-            paths_lines = '\n'.join(['path %s' % p for p in module_paths])
-            debug_mode = options.get('debug-mode', 'off')
-            security_implementation = 'C'
-            verbose_security = options.get('verbose-security', 'off')
-            if verbose_security == 'on':
-                security_implementation = 'python'
-            port_base = options.get('port-base', '')
-            if port_base:
-                port_base = 'port-base %s' % port_base
-            http_address = options.get('http-address', '8080')
-            http_fast_listen = options.get('http-fast-listen', None)
-            if http_fast_listen is None:
-                http_fast_listen = ''
+        z_log_name = os.path.sep.join(('log', self.name + '-Z2.log'))
+        z_log_name = options.get('z2-log', z_log_name)
+        z_log = os.path.join(var_dir, z_log_name)
+        z_log_dir = os.path.dirname(z_log)
+        if not os.path.exists(z_log_dir):
+            os.makedirs(z_log_dir)
+
+        z_log_level = options.get('z2-log-level', 'WARN')
+
+        # access event log
+        custom_access_event_log = options.get('access-log-custom', None)
+        # filelog directive
+        if custom_access_event_log is None:
+            access_event_log = access_event_logfile % {'z_log': z_log}
+        # custom directive
+        else:
+            access_event_log = custom_access_event_log
+
+        default_zpublisher_encoding = options.get('default-zpublisher-encoding',
+                                                  'utf-8')
+        if default_zpublisher_encoding:
+            default_zpublisher_encoding = 'default-zpublisher-encoding %s' %\
+                                          default_zpublisher_encoding
+
+        relstorage = options.get('rel-storage')
+        if relstorage:
+            def _split(el):
+                el = el.split(None, 1)
+                return len(el) == 2 and el or None
+
+            rel_storage = dict([
+                _split(el) for el in relstorage.splitlines()
+                if _split(el) is not None])
+            type_ = rel_storage.pop('type', 'postgresql')
+
+            if type_ == 'postgresql' and not 'dsn' in rel_storage:
+                # Support zope2instance 1.4 style interpolation for
+                # postgresql
+                template = ("dbname='%(dbname)s' user='%(user)s' "
+                            "host='%(host)s' password='%(password)s'")
+                rel_storage = dict(dsn=template % rel_storage)
+
+            rel_storage_outer_opts = (
+                'blob-dir',
+                'poll-interval',
+                'pack-gc',
+                'pack-dry-run',
+                'pack-batch-timeout',
+                'pack-duty-cycle',
+                'pack-max-delay',
+                'cache-servers',
+                'cache-module-name',
+                )
+
+            opts = dict(
+                type=type_,
+                db_opts='\n'.join(' ' * 12 + ' '.join((k, v))
+                                  for k, v in rel_storage.iteritems()
+                                  if k not in rel_storage_outer_opts),
+                rs_opts='\n'.join(' ' * 8 + ' '.join((k, v))
+                                  for k, v in rel_storage.iteritems()
+                                  if k in rel_storage_outer_opts),
+                )
+            storage_snippet = rel_storage_template % opts
+
+        else:
+            file_storage = options.get('file-storage',
+                                       os.path.sep.join(('filestorage',
+                                                         'Data.fs',)))
+            file_storage = os.path.join(var_dir, file_storage)
+            file_storage_dir = os.path.dirname(file_storage)
+            if not os.path.exists(file_storage_dir):
+                os.makedirs(file_storage_dir)
+            storage_snippet = file_storage_template % file_storage
+
+            blob_storage = options.get('blob-storage', None)
+            demo_storage = options.get('demo-storage', 'off') \
+                         not in ('off', 'disable', 'false')
+
+            if blob_storage and demo_storage:
+                raise ValueError("Both blob and demo storage cannot be used"
+                                 " at the same time.")
+
+            if blob_storage:
+                blob_storage = os.path.join(base_dir, blob_storage)
+                if not os.path.exists(blob_storage):
+                    os.makedirs(blob_storage)
+                storage_snippet = blob_storage_template % (blob_storage,
+                                                           file_storage)
+
+            elif demo_storage:
+                storage_snippet = demo_storage_template % storage_snippet
+
+        zserver_threads = options.get('zserver-threads', '')
+        if zserver_threads:
+            zserver_threads = 'zserver-threads %s' % zserver_threads
+
+        zeo_client = options.get('zeo-client', '')
+        zeo_address = options.get('zeo-address', '8100')
+
+        zodb_cache_size = options.get('zodb-cache-size', '5000')
+        zodb_cache_size_bytes = options.get('zodb-cache-size-bytes', None)
+        if zodb_cache_size_bytes:
+            zodb_cache_size_bytes = "cache-size-bytes %s" % zodb_cache_size_bytes
+        else:
+            zodb_cache_size_bytes = ""
+        zeo_client_cache_size = options.get('zeo-client-cache-size', '30MB')
+        zeo_storage = options.get('zeo-storage', '1')
+
+        if zeo_client.lower() in ('yes', 'true', 'on', '1'):
+            zeo_client_name = options.get('zeo-client-name', self.name)
+            zeo_var_dir = options.get('zeo-var',
+                                      os.path.join(instance_home, 'var'))
+            zeo_client_client = options.get('zeo-client-client', '')
+            zeo_client_min_disconnect_poll = options.get('min-disconnect-poll', "")
+            zeo_client_max_disconnect_poll = options.get('max-disconnect-poll', "")
+            shared_blob_dir = options.get('shared-blob', 'no')
+            if zeo_client_name:
+                zeo_client_name = 'zeo-client-name %s' % zeo_client_name
+            if zeo_client_client:
+                zeo_client_client = 'client %s' % zeo_client_client
+            if zeo_client_min_disconnect_poll:
+                zeo_client_min_disconnect_poll = "min-disconnect-poll %s" % zeo_client_min_disconnect_poll
+            if zeo_client_max_disconnect_poll:
+                zeo_client_max_disconnect_poll = "max-disconnect-poll %s" % zeo_client_max_disconnect_poll
+            if options.get('zeo-username', ''):
+                if not options.get('zeo-password', ''):
+                    raise zc.buildout.UserError('No ZEO password specified')
+
+                zeo_authentication = zeo_authentication_template % dict(
+                        realm = options.get('zeo-realm', 'ZEO'),
+                        username = options.get('zeo-username'),
+                        password = options.get('zeo-password'))
             else:
-                http_fast_listen = http_fast_listen_template % http_fast_listen
-            ftp_address = options.get('ftp-address', '')
-            if ftp_address:
-                ftp_address = ftp_server_template % ftp_address
-            webdav_address = options.get('webdav-address', '')
-            if webdav_address:
-                webdav_conn_close = options.get(
-                                        'webdav-force-connection-close',
-                                        'off')
-                webdav_address = webdav_server_template % (webdav_address,
-                                                           webdav_conn_close)
-            effective_user = options.get('effective-user', '')
-            if effective_user:
-                effective_user = 'effective-user %s' % effective_user
-            ip_address = options.get('ip-address', '')
-            if ip_address:
-                ip_address = 'ip-address %s' % ip_address
-            environment_vars = options.get('environment-vars', '')
-            if environment_vars:
-                # if the vars are all given on one line we need to do some work
-                if not '\n' in environment_vars:
-                    keys = []
-                    values = []
-                    env_vars = environment_vars.split()
-                    # split out the odd and even items into keys, values
-                    for var in env_vars:
-                        if divmod(env_vars.index(var) + 1, 2)[1]:
-                            keys.append(var)
-                        else:
-                            values.append(var)
-                    env_vars = zip(keys, values)
-                    environment_vars = '\n'.join(["%s %s" % (env_var[0], env_var[1])
-                                                 for env_var in env_vars])
-                environment_vars = environment_template % environment_vars
+                zeo_authentication = ''
 
-            deprecation_warnings = options.get('deprecation-warnings', '')
-            if deprecation_warnings:
-                if deprecation_warnings.lower() in ('off', 'disable', 'false'):
-                    deprecation_warnings = 'ignore'
-                elif deprecation_warnings.lower() in ('enable', 'on', 'true'):
-                    deprecation_warnings = 'default'
-                deprecation_warnings = '\n'.join((
-                    "<warnfilter>",
-                    "  action %s" % deprecation_warnings,
-                    "  category exceptions.DeprecationWarning",
-                    "</warnfilter>"))
-
-            zope_conf_additional = options.get('zope-conf-additional', '')
-
-            event_log_level = options.get('event-log-level', 'INFO')
-            custom_event_log = options.get('event-log-custom', None)
-            default_log = os.path.sep.join(('log', self.name + '.log',))
-            # log file
-            if custom_event_log is None:
-                event_log_name = options.get('event-log', default_log)
-                event_file = os.path.join(var_dir, event_log_name)
-                event_log_dir = os.path.dirname(event_file)
-                if not os.path.exists(event_log_dir):
-                    os.makedirs(event_log_dir)
-                event_log = event_logfile % {'event_logfile': event_file,
-                                             'event_log_level': event_log_level}
-            # custom log
+            if blob_storage:
+                storage_snippet_template = zeo_blob_storage_template
+            elif demo_storage:
+                storage_snippet_template = demo_storage_template % zeo_storage_template
             else:
-                event_log = custom_event_log
+                storage_snippet_template = zeo_storage_template
 
-            z_log_name = os.path.sep.join(('log', self.name + '-Z2.log'))
-            z_log_name = options.get('z2-log', z_log_name)
-            z_log = os.path.join(var_dir, z_log_name)
-            z_log_dir = os.path.dirname(z_log)
-            if not os.path.exists(z_log_dir):
-                os.makedirs(z_log_dir)
+            storage_snippet = storage_snippet_template % dict(
+                blob_storage = blob_storage,
+                shared_blob_dir = shared_blob_dir,
+                zeo_address = zeo_address,
+                zeo_client_cache_size = zeo_client_cache_size,
+                zeo_authentication = zeo_authentication,
+                zeo_client_client = zeo_client_client,
+                zeo_storage = zeo_storage,
+                zeo_var_dir=zeo_var_dir,
+                zeo_client_min_disconnect_poll=zeo_client_min_disconnect_poll,
+                zeo_client_max_disconnect_poll=zeo_client_max_disconnect_poll,
+                )
+        else:
+            # no zeo-client
+            zeo_client_client = ''
+            zeo_client_name = ''
 
-            z_log_level = options.get('z2-log-level', 'WARN')
+        zodb_tmp_storage = options.get('zodb-temporary-storage',
+                                       zodb_temporary_storage_template)
 
-            # access event log
-            custom_access_event_log = options.get('access-log-custom', None)
-            # filelog directive
-            if custom_access_event_log is None:
-                access_event_log = access_event_logfile % {'z_log': z_log}
-            # custom directive
-            else:
-                access_event_log = custom_access_event_log
+        template = zope_conf_template
 
-            default_zpublisher_encoding = options.get('default-zpublisher-encoding',
-                                                      'utf-8')
-            if default_zpublisher_encoding:
-                default_zpublisher_encoding = 'default-zpublisher-encoding %s' %\
-                                              default_zpublisher_encoding
+        pid_file = options.get(
+            'pid-file',
+            os.path.join(var_dir, self.name + '.pid'))
+        pid_file_dir = os.path.dirname(pid_file)
+        if not os.path.exists(pid_file_dir):
+            os.makedirs(pid_file_dir)
 
-            relstorage = options.get('rel-storage')
-            if relstorage:
-                def _split(el):
-                    el = el.split(None, 1)
-                    return len(el) == 2 and el or None
+        lock_file = options.get(
+            'lock-file',
+            os.path.join(var_dir, self.name + '.lock'))
+        lock_file_dir = os.path.dirname(lock_file)
+        if not os.path.exists(lock_file_dir):
+            os.makedirs(lock_file_dir)
 
-                rel_storage = dict([
-                    _split(el) for el in relstorage.splitlines()
-                    if _split(el) is not None])
-                type_ = rel_storage.pop('type', 'postgresql')
-
-                if type_ == 'postgresql' and not 'dsn' in rel_storage:
-                    # Support zope2instance 1.4 style interpolation for
-                    # postgresql
-                    template = ("dbname='%(dbname)s' user='%(user)s' "
-                                "host='%(host)s' password='%(password)s'")
-                    rel_storage = dict(dsn=template % rel_storage)
-
-                opts = dict(
-                    type=type_,
-                    opts='\n'.join([' ' * 12 + ' '.join(item)
-                                   for item in rel_storage.iteritems()]))
-                storage_snippet = rel_storage_template % opts
-
-            else:
-                file_storage = options.get('file-storage',
-                                           os.path.sep.join(('filestorage',
-                                                             'Data.fs',)))
-                file_storage = os.path.join(var_dir, file_storage)
-                file_storage_dir = os.path.dirname(file_storage)
-                if not os.path.exists(file_storage_dir):
-                    os.makedirs(file_storage_dir)
-                storage_snippet = file_storage_template % file_storage
-
-                blob_storage = options.get('blob-storage', None)
-                demo_storage = options.get('demo-storage', 'off') \
-                             not in ('off', 'disable', 'false')
-
-                if blob_storage and demo_storage:
-                    raise ValueError("Both blob and demo storage cannot be used"
-                                     " at the same time.")
-
-                if blob_storage:
-                    blob_storage = os.path.join(base_dir, blob_storage)
-                    if not os.path.exists(blob_storage):
-                        os.makedirs(blob_storage)
-                    storage_snippet = blob_storage_template % (blob_storage,
-                                                               file_storage)
-
-                elif demo_storage:
-                    storage_snippet = demo_storage_template % storage_snippet
-
-            zserver_threads = options.get('zserver-threads', '')
-            if zserver_threads:
-                zserver_threads = 'zserver-threads %s' % zserver_threads
-
-            zeo_client = options.get('zeo-client', '')
-            zeo_address = options.get('zeo-address', '8100')
-
-            zodb_cache_size = options.get('zodb-cache-size', '5000')
-            zodb_cache_size_bytes = options.get('zodb-cache-size-bytes', None)
-            if zodb_cache_size_bytes:
-                zodb_cache_size_bytes = "cache-size-bytes %s" % zodb_cache_size_bytes
-            else:
-                zodb_cache_size_bytes = ""
-            zeo_client_cache_size = options.get('zeo-client-cache-size', '30MB')
-            zeo_storage = options.get('zeo-storage', '1')
-
-            if zeo_client.lower() in ('yes', 'true', 'on', '1'):
-                zeo_client_name = options.get('zeo-client-name', self.name)
-                zeo_var_dir = options.get('zeo-var',
-                                          os.path.join(instance_home, 'var'))
-                zeo_client_client = options.get('zeo-client-client', '')
-                zeo_client_min_disconnect_poll = options.get('min-disconnect-poll', "")
-                zeo_client_max_disconnect_poll = options.get('max-disconnect-poll', "")
-                shared_blob_dir = options.get('shared-blob', 'no')
-                if zeo_client_name:
-                    zeo_client_name = 'zeo-client-name %s' % zeo_client_name
-                if zeo_client_client:
-                    zeo_client_client = 'client %s' % zeo_client_client
-                if zeo_client_min_disconnect_poll:
-                    zeo_client_min_disconnect_poll = "min-disconnect-poll %s" % zeo_client_min_disconnect_poll
-                if zeo_client_max_disconnect_poll:
-                    zeo_client_max_disconnect_poll = "max-disconnect-poll %s" % zeo_client_max_disconnect_poll
-                if options.get('zeo-username', ''):
-                    if not options.get('zeo-password', ''):
-                        raise zc.buildout.UserError('No ZEO password specified')
-
-                    zeo_authentication = zeo_authentication_template % dict(
-                            realm = options.get('zeo-realm', 'ZEO'),
-                            username = options.get('zeo-username'),
-                            password = options.get('zeo-password'))
-                else:
-                    zeo_authentication = ''
-
-                if blob_storage:
-                    storage_snippet_template = zeo_blob_storage_template
-                elif demo_storage:
-                    storage_snippet_template = demo_storage_template % zeo_storage_template
-                else:
-                    storage_snippet_template = zeo_storage_template
-
-                storage_snippet = storage_snippet_template % dict(
-                    blob_storage = blob_storage,
-                    shared_blob_dir = shared_blob_dir,
-                    zeo_address = zeo_address,
-                    zeo_client_cache_size = zeo_client_cache_size,
-                    zeo_authentication = zeo_authentication,
-                    zeo_client_client = zeo_client_client,
-                    zeo_storage = zeo_storage,
-                    zeo_var_dir=zeo_var_dir,
-                    zeo_client_min_disconnect_poll=zeo_client_min_disconnect_poll,
-                    zeo_client_max_disconnect_poll=zeo_client_max_disconnect_poll,
-                    )
-            else:
-                # no zeo-client
-                zeo_client_client = ''
-                zeo_client_name = ''
-
-            zodb_tmp_storage = options.get('zodb-temporary-storage',
-                                           zodb_temporary_storage_template)
-
-            template = zope_conf_template
-
-            pid_file = options.get(
-                'pid-file',
-                os.path.join(var_dir, self.name + '.pid'))
-            pid_file_dir = os.path.dirname(pid_file)
-            if not os.path.exists(pid_file_dir):
-                os.makedirs(pid_file_dir)
-
-            lock_file = options.get(
-                'lock-file',
-                os.path.join(var_dir, self.name + '.lock'))
-            lock_file_dir = os.path.dirname(lock_file)
-            if not os.path.exists(lock_file_dir):
-                os.makedirs(lock_file_dir)
-
-            zope_conf = template % dict(instance_home = instance_home,
-                                        client_home = client_home,
-                                        paths_lines = paths_lines,
-                                        products_lines = products_lines,
-                                        debug_mode = debug_mode,
-                                        security_implementation = security_implementation,
-                                        verbose_security = verbose_security,
-                                        effective_user = effective_user,
-                                        ip_address = ip_address,
-                                        event_log = event_log,
-                                        event_log_level = event_log_level,
-                                        access_event_log = access_event_log,
-                                        z_log_level = z_log_level,
-                                        default_zpublisher_encoding = default_zpublisher_encoding,
-                                        storage_snippet = storage_snippet.strip(),
-                                        port_base = port_base,
-                                        http_address = http_address,
-                                        http_fast_listen = http_fast_listen,
-                                        ftp_address = ftp_address,
-                                        webdav_address = webdav_address,
-                                        zserver_threads = zserver_threads,
-                                        zodb_cache_size = zodb_cache_size,
-                                        zodb_cache_size_bytes = zodb_cache_size_bytes,
-                                        zeo_client_name = zeo_client_name,
-                                        zodb_tmp_storage = zodb_tmp_storage,
-                                        pid_file = pid_file,
-                                        lock_file = lock_file,
-                                        environment_vars = environment_vars,
-                                        deprecation_warnings = deprecation_warnings,
-                                        zope_conf_additional = zope_conf_additional,)
+        zope_conf = template % dict(instance_home = instance_home,
+                                    client_home = client_home,
+                                    paths_lines = paths_lines,
+                                    products_lines = products_lines,
+                                    debug_mode = debug_mode,
+                                    security_implementation = security_implementation,
+                                    verbose_security = verbose_security,
+                                    effective_user = effective_user,
+                                    ip_address = ip_address,
+                                    event_log = event_log,
+                                    event_log_level = event_log_level,
+                                    access_event_log = access_event_log,
+                                    z_log_level = z_log_level,
+                                    default_zpublisher_encoding = default_zpublisher_encoding,
+                                    storage_snippet = storage_snippet.strip(),
+                                    port_base = port_base,
+                                    http_address = http_address,
+                                    http_fast_listen = http_fast_listen,
+                                    ftp_address = ftp_address,
+                                    webdav_address = webdav_address,
+                                    icp_address = icp_address,
+                                    zserver_threads = zserver_threads,
+                                    zodb_cache_size = zodb_cache_size,
+                                    zodb_cache_size_bytes = zodb_cache_size_bytes,
+                                    zeo_client_name = zeo_client_name,
+                                    zodb_tmp_storage = zodb_tmp_storage,
+                                    pid_file = pid_file,
+                                    lock_file = lock_file,
+                                    environment_vars = environment_vars,
+                                    deprecation_warnings = deprecation_warnings,
+                                    zope_conf_additional = zope_conf_additional,)
 
         zope_conf_path = os.path.join(location, 'etc', 'zope.conf')
         try:
@@ -437,7 +477,7 @@ class Recipe:
             fd.close()
 
     def patch_binaries(self, ws_locations):
-        if self.zope2_egg:
+        if not self.zope2_location:
             return
 
         location = self.options['location']
@@ -532,6 +572,8 @@ if __name__ == '__main__':
 
         # The instance control script
         zope_conf = os.path.join(location, 'etc', 'zope.conf')
+        zope_conf_path = options.get('zope-conf', zope_conf)
+
         extra_paths = []
 
         # Only append the instance home and Zope lib/python in a non-egg
@@ -545,40 +587,45 @@ if __name__ == '__main__':
 
         requirements, ws = self.egg.working_set(['plone.recipe.zope2instance'])
 
-        if self.zope2_egg:
+        if options.get('no-shell') == 'true':
             zc.buildout.easy_install.scripts(
                 [(self.options.get('control-script', self.name),
-                    'plone.recipe.zope2instance.simple', 'main')],
-                ws, options['executable'], options['bin-directory'],
-                extra_paths = extra_paths,
-                arguments = ('\n        [%r]'
-                             % zope_conf
-                             ),
-                )
-        else:
-            zc.buildout.easy_install.scripts(
-                [(self.options.get('control-script', self.name),
-                    'plone.recipe.zope2instance.ctl', 'main')],
+                  'plone.recipe.zope2instance.ctl', 'noshell')],
                 ws, options['executable'], options['bin-directory'],
                 extra_paths = extra_paths,
                 arguments = ('\n        ["-C", %r]'
                              '\n        + sys.argv[1:]'
-                             % zope_conf
+                             % zope_conf_path
                              ),
+                relative_paths=self._relative_paths,
                 )
-            # The backup script, pointing to repozo.py
-            repozo = options.get('repozo', None)
-            if repozo is None:
-                repozo = os.path.join(self.zope2_location, 'utilities', 'ZODBTools', 'repozo.py')
+        else:
+            zc.buildout.easy_install.scripts(
+                [(self.options.get('control-script', self.name),
+                  'plone.recipe.zope2instance.ctl', 'main')],
+                ws, options['executable'], options['bin-directory'],
+                extra_paths = extra_paths,
+                arguments = ('\n        ["-C", %r]'
+                             '\n        + sys.argv[1:]'
+                             % zope_conf_path
+                             ),
+                relative_paths=self._relative_paths,
+                )
 
-            directory, filename = os.path.split(repozo)
-            if repozo and os.path.exists(repozo):
-                zc.buildout.easy_install.scripts(
-                    [('repozo', os.path.splitext(filename)[0], 'main')],
-                    {}, options['executable'], options['bin-directory'],
-                    extra_paths = [os.path.join(self.zope2_location, 'lib', 'python'),
-                                   directory],
-                    )
+        # The backup script, pointing to repozo.py
+        repozo = options.get('repozo', None)
+        if repozo is None:
+            repozo = os.path.join(self.zope2_location, 'utilities', 'ZODBTools', 'repozo.py')
+
+        directory, filename = os.path.split(repozo)
+        if repozo and os.path.exists(repozo):
+            zc.buildout.easy_install.scripts(
+                [('repozo', os.path.splitext(filename)[0], 'main')],
+                {}, options['executable'], options['bin-directory'],
+                extra_paths = [os.path.join(self.zope2_location, 'lib', 'python'),
+                               directory],
+                relative_paths=self._relative_paths,
+                )
 
     def build_package_includes(self):
         """Create ZCML slugs in etc/package-includes
@@ -674,8 +721,9 @@ demo_storage_template="""
 rel_storage_template="""
     %%import relstorage
     <relstorage>
+%(rs_opts)s
         <%(type)s>
-%(opts)s
+%(db_opts)s
         </%(type)s>
     </relstorage>
 """
@@ -766,6 +814,13 @@ ftp_server_template = """
 </ftp-server>
 """
 
+icp_server_template = """
+<icp-server>
+  # valid key is "address"
+  address %s
+</icp-server>
+"""
+
 webdav_server_template = """
 <webdav-source-server>
   # valid keys are "address" and "force-connection-close"
@@ -821,6 +876,7 @@ verbose-security %(verbose_security)s
 
 %(ftp_address)s
 %(webdav_address)s
+%(icp_address)s
 
 <zodb_db main>
     # Main database

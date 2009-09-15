@@ -1,15 +1,60 @@
-Change History
-==============
+Changelog
+=========
 
-3.3 - UNRELEASED
+3.6 (unreleased)
 ----------------
+
+
+3.5 (2009-09-05)
+----------------
+
+- Added support for relative-paths in the script generation.
+  [jvloothuis]
+
+- When `zope-conf` is set the config file will be directly loaded from that
+  location (it previously created a stub zope.conf which included it).
+  [jvloothuis]
+
+- Added an option to avoid using the normal shell scripts for starting Zope.
+  This makes it possible to avoid the hard-coded paths in these scripts.
+  [jvloothuis]
+
+- Allow the blob-dir parameter in RelStorage configurations.
+  [hathawsh]
+
+3.4 (2009-08-12)
+----------------
+
+- Support in line with fix for LP#407916.
+  [gotcha]
+
+- Changed the 'mkzopeinstance' call respect the 'bin-directory' option.
+  [esteele]
+
+- Removed the `zope2-egg` option and the simple startup script from the recipe.
+  We assume that we have an egg distribution if `zope2-location` is not set.
+  [hannosch]
+
+- Merged the `davisagli-eggified-zope` branch into the trunk.
+  [hannosch]
+
+- Add a new icp-address option. This is useful for environments where
+  e.g. squid is used to front a Zope/ZEO cluster. See
+  http://www.zope.org/Members/htrd/icp/intro
+  [neaj]
+
+3.3 - 2009-07-07
+----------------
+
+- Add handling for RelStorage options.
+  [elro]
 
 - Reinstall scripts on update which appears to be good recipe practice.
   [stefan]
 - Add a new option to the instance script, --exit-with-status. If set
   script will return an exit code. Useful for buildbot based tests
 
-3.2 (2009-04-02)
+3.2 - 2009-04-02
 ----------------
 
 - Add a new zcml-additional option. This is useful for environments where
@@ -23,7 +68,7 @@ Change History
 - The 2.9 fix for spaces caused a problem using debug (bug 337740)
   due to the way do_debug passed the "-i" command line argument
   to get_startup_cmd.
-  [smcmahon]  
+  [smcmahon]
 
 3.0 (2009-02-27)
 ----------------
@@ -45,7 +90,7 @@ Change History
   [smcmahon]
 
 - Check for existence of windows scripts before patching them. Some
-  Linux distributions of Zope2 don't have these files. 
+  Linux distributions of Zope2 don't have these files.
   [smcmahon]
 
 - Delegate commands to ``win32serviceutil.HandleCommand()`` on win32,
@@ -162,7 +207,7 @@ Change History
 
 - Escape 'executable' argument before passing it to os.spawnl, in
   order to make it work on Windows when the executable name has spaces
-  on it.  
+  on it.
   [sidnei]
 
 - Added `http-fast-listen` option. Use of this option requires Zope >= 2.11.
@@ -184,7 +229,7 @@ Change History
   `zodb-temporary-storage` option.
   [jensens]
 
-- Added `environment-vars` option to set environment variables. Changed 
+- Added `environment-vars` option to set environment variables. Changed
   the zope-conf-additional example code to something that isn't covered by
   the recipe.
   [claytron]
@@ -270,8 +315,8 @@ Change History
 - Added 'zeo-client-client' option which results in 'client <value>' inside
   <zeoclient>.
   [timte, hannosch]
-  
-- Made relstorage handling more generic, so it now supports any RelStorage 
+
+- Made relstorage handling more generic, so it now supports any RelStorage
   adapter, including Oracle (which was broken).
   [mj]
 

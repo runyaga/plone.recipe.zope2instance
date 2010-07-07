@@ -13,6 +13,7 @@
 #
 ##############################################################################
 
+import logging
 import os
 import os.path
 import re
@@ -28,6 +29,7 @@ from plone.recipe.zope2instance import make
 
 IS_WIN = sys.platform[:3].lower() == 'win'
 
+curdir = os.path.dirname(__file__)
 
 class Recipe:
 
@@ -52,6 +54,14 @@ class Recipe:
             self._relative_paths = options['buildout-directory']
         else:
             self._relative_paths = ''
+
+    _ws_locations = None
+
+    def ws_locations(self):
+        if self._ws_locations is None:
+            self._ws_locations = [d.location for d in self.zope_ws]
+        return self._ws_locations
+    ws_locations = property(ws_locations)
 
     def install(self, update=False):
         options = self.options
@@ -417,10 +427,10 @@ class Recipe:
 
         template = zope_conf_template
 
-        pid_file = options.get(
+        self.pid_file = options.get(
             'pid-file',
             os.path.join(var_dir, self.name + '.pid'))
-        pid_file_dir = os.path.dirname(pid_file)
+        pid_file_dir = os.path.dirname(self.pid_file)
         if not os.path.exists(pid_file_dir):
             os.makedirs(pid_file_dir)
 
@@ -459,7 +469,7 @@ class Recipe:
                                     zodb_cache_size_bytes = zodb_cache_size_bytes,
                                     zeo_client_name = zeo_client_name,
                                     zodb_tmp_storage = zodb_tmp_storage,
-                                    pid_file = pid_file,
+                                    pid_file = self.pid_file,
                                     lock_file = lock_file,
                                     environment_vars = environment_vars,
                                     deprecation_warnings = deprecation_warnings,
@@ -484,6 +494,7 @@ class Recipe:
 
         extra_paths = options.get('extra-paths', '').split()
         requirements, ws = self.egg.working_set(['plone.recipe.zope2instance'])
+        self.zope_ws = ws
 
         zc.buildout.easy_install.scripts(
             [(self.options.get('control-script', self.name),
@@ -496,6 +507,54 @@ class Recipe:
                          ),
             relative_paths=self._relative_paths,
             )
+
+        if sys.platform == 'win32':
+            self.install_win32_scripts()
+
+    def install_win32_scripts(self):
+        extra_paths = self.options.get('extra-paths', '').split()
+        path = extra_paths + self.ws_locations
+        location = self.options['location']
+        zope_run = os.path.join(self.options['bin-directory'], 'runzope-script.py')
+
+        arguments = {'PYTHON': self.options['executable'],
+                     'ZOPE_RUN': zope_run,
+                     'INSTANCE_HOME': location,
+                     'PYTHONPATH': os.path.pathsep.join(path),
+                     'PID_FILENAME': self.pid_file}
+
+
+        # zopeservice.py
+        zope_filename = '%s_service' % self.name
+        zope_service = open(os.path.join(curdir, 'zopeservice.py.in')).read()
+        zope_file = os.path.join(self.options['bin-directory'],
+                                    '%s.py' % zope_filename)
+        self._write_file(zope_file, zope_service % arguments)
+
+        initialization = """
+        import os; os.environ['PYTHONPATH'] = %r
+        """.strip() % os.path.pathsep.join(path)
+
+        zc.buildout.easy_install.scripts(
+            [(zope_filename, zope_filename, 'main')],
+            self.zope_ws,
+            self.options['executable'],
+            self.options['bin-directory'],
+            extra_paths = path,
+            relative_paths=self._relative_paths,
+            initialization = initialization,
+            )
+
+    def _write_file(self, path, content):
+        logger = logging.getLogger('zc.buildout.easy_install')
+        f = open(path, 'w')
+        try:
+            f.write(content)
+        finally:
+            f.close()
+        logger.debug('Wrote file %s' % path)
+        os.chmod(path, 0755)
+        logger.warning('Changed mode for %s to 755' % path)
 
     def build_package_includes(self):
         """Create ZCML slugs in etc/package-includes

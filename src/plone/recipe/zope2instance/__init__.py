@@ -515,10 +515,8 @@ class Recipe:
         extra_paths = self.options.get('extra-paths', '').split()
         path = extra_paths + self.ws_locations
         location = self.options['location']
-        zope_run = os.path.join(self.options['bin-directory'], 'runzope-script.py')
 
         arguments = {'PYTHON': self.options['executable'],
-                     'ZOPE_RUN': zope_run,
                      'INSTANCE_HOME': location,
                      'PYTHONPATH': os.path.pathsep.join(path),
                      'PID_FILENAME': self.pid_file}

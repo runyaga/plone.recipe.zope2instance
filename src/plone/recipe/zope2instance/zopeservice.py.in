@@ -72,8 +72,6 @@ PYTHON = r'%(PYTHON)s'
 INSTANCE_HOME = r'%(INSTANCE_HOME)s'
 PYTHONPATH = r'%(PYTHONPATH)s'
 PID_FILENAME = r'%(PID_FILENAME)s'
-
-ZOPE_RUN = r'%(ZOPE_RUN)s'
 CONFIG_FILE= os.path.join(INSTANCE_HOME, 'etc', 'zope.conf')
 
 import win32service
@@ -88,6 +86,8 @@ for part in PYTHONPATH.split(os.pathsep):
 os.environ["PYTHONPATH"] = os.pathsep.join(parts)
 sys.path[0:0] = parts
 
+import Zope2
+ZOPE_RUN = os.path.join(os.path.dirname(Zope2.__file__), 'Startup', 'run.py')
 from nt_svcutils.service import Service
 
 servicename = 'Zope_%%s' %% str(hash(INSTANCE_HOME.lower()))

@@ -117,6 +117,10 @@ event-log-level
   Set the level of the console output for the event log. Level may be any of
   CRITICAL, ERROR, WARN, INFO, DEBUG, or ALL. Defaults to INFO.
 
+wsgi
+  Set to true to disable creating the http-server section in the zope.conf
+  since it is unneeded for wsgi setups
+
 mailinglogger
   A mailinglogger section added into the event log. Example snippet::
 

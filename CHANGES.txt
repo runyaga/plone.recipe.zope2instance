@@ -11,6 +11,8 @@ Changelog
   cache-delta-size-limit, commit-lock-timeout and commit-lock-id.
   [hannosch]
 
+- added wsgi option for creating instances that are only for wsgi setups
+
 4.0b2 - 2010-06-23
 ------------------
 

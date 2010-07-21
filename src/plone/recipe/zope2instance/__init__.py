@@ -168,6 +168,11 @@ class Recipe:
         ip_address = options.get('ip-address', '')
         if ip_address:
             ip_address = 'ip-address %s' % ip_address
+        if options.get('wsgi', 'False').lower() == 'true':
+            http_server = ''
+        else:
+            http_server = http_server_template % (http_address, http_fast_listen)
+            
         environment_vars = options.get('environment-vars', '')
         if environment_vars:
             # if the vars are all given on one line we need to do some work
@@ -449,8 +454,7 @@ class Recipe:
                                     default_zpublisher_encoding = default_zpublisher_encoding,
                                     storage_snippet = storage_snippet.strip(),
                                     port_base = port_base,
-                                    http_address = http_address,
-                                    http_fast_listen = http_fast_listen,
+                                    http_server = http_server,
                                     ftp_address = ftp_address,
                                     webdav_address = webdav_address,
                                     icp_address = icp_address,
@@ -697,6 +701,13 @@ environment_template = """
 </environment>
 """
 
+http_server_template = """
+<http-server>
+  # valid keys are "address" and "force-connection-close"
+  address %s
+%s
+</http-server>"""
+
 # The template used to build zope.conf
 zope_conf_template="""\
 %%define INSTANCEHOME %(instance_home)s
@@ -729,11 +740,7 @@ verbose-security %(verbose_security)s
   %(access_event_log)s
 </logger>
 
-<http-server>
-  # valid keys are "address" and "force-connection-close"
-  address %(http_address)s
-%(http_fast_listen)s
-</http-server>
+%(http_server)s
 
 %(ftp_address)s
 %(webdav_address)s
